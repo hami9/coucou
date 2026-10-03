@@ -192,6 +192,7 @@ function handleHook(island: Island, payload: HookPayload) {
     case "UserPromptSubmit": {
       ensurePill();
       State.updateTask(agentId, "thinking");
+      State.focusActiveTask(agentId);
       // The field is `prompt`; reading `message` meant this step was always blank.
       const asked = payload.prompt ?? payload.message;
       if (asked) State.appendStep(agentId, asked.slice(0, 60));
@@ -202,6 +203,7 @@ function handleHook(island: Island, payload: HookPayload) {
     case "PreToolUse": {
       ensurePill();
       State.updateTask(agentId, "working");
+      State.focusActiveTask(agentId);
       const tool = payload.tool_name ?? "Tool";
       State.appendStep(agentId, stepLabel(tool, payload.tool_input ?? {}));
       surface("overview", false);
@@ -209,7 +211,10 @@ function handleHook(island: Island, payload: HookPayload) {
     }
 
     case "PostToolUse":
+      ensurePill();
       State.updateTask(agentId, "working");
+      State.focusActiveTask(agentId);
+      surface("overview", false);
       break;
 
     case "PostToolUseFailure":

@@ -78,6 +78,8 @@ export class Ticker {
   private queue: string[] = [];
   private startMs: number | null = null;
   private displayIndex = -1;
+  private taskId: string | null = null;
+  private latestStep = "";
 
   constructor() {
     this.el = h("div", { class: "ticker" }, this.a.el, this.b.el, this.c.el);
@@ -98,6 +100,16 @@ export class Ticker {
   sync(task: AgentTask | null) {
     const steps = task && task.steps.length > 0 ? task.steps : ["…"];
     const idx = task ? Math.min(task.stepIndex, steps.length - 1) : -1;
+    const latest = steps[Math.max(idx, 0)];
+    // Switching agents or updating a capped history must not retain old text.
+    if (this.taskId !== (task?.id ?? null) ||
+        (idx === this.displayIndex && latest !== this.latestStep)) {
+      this.queue = [];
+      this.startMs = null;
+      this.displayIndex = -1;
+    }
+    this.taskId = task?.id ?? null;
+    this.latestStep = latest;
 
     // First render: drop straight into place, no animation.
     if (this.displayIndex < 0) {

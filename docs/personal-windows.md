@@ -34,6 +34,8 @@ For daily use, run `windows/build-app.cmd`, then open `windows/release/coucou.ex
 
 Both development and standalone builds use `windows/target/debug/coucou.exe`. A development run replaces that file with a version that needs the development server. Use the separate `release/` copy for daily use. Windows builds hide the console window in both modes. A successful front-end build alone does not verify the native app or its relay.
 
+On this laptop, `windows/target` is a directory junction to `E:\coucou-build\target`. Build artifacts live on E while existing Cargo and packaging paths keep working. Keep E available during builds. This is a local storage choice, not a requirement for other checkouts.
+
 ## Setup checks
 
 Verified on Windows on 2026-10-03:

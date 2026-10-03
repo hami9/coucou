@@ -183,6 +183,15 @@ class AppState {
     this.notify();
   }
 
+  /** Show incoming work when the selected agent is inactive. Preserve alerts. */
+  focusActiveTask(id: string) {
+    if (this.isPinned || (this.view !== "overview" && this.view !== "empty")) return;
+    const current = this.focusTask;
+    if (!current || current.state === "idle" || current.state === "finished") {
+      this.setFocus(id);
+    }
+  }
+
   appendStep(id: string, step: string) {
     const t = this.tasks.find((x) => x.id === id);
     if (!t) return;
