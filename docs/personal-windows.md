@@ -30,7 +30,9 @@ npm.cmd run tauri -- build --debug --no-bundle
 cargo test --workspace --locked
 ```
 
-The native debug executable is `windows/target/debug/coucou.exe`. A successful front-end build alone does not verify the native app or its relay.
+For daily use, run `windows/build-app.cmd`, then open `windows/release/coucou.exe`. This copy includes the built interface and runs without Vite. Close the running copy before rebuilding it.
+
+Both development and standalone builds use `windows/target/debug/coucou.exe`. A development run replaces that file with a version that needs the development server. Use the separate `release/` copy for daily use. Windows builds hide the console window in both modes. A successful front-end build alone does not verify the native app or its relay.
 
 ## Setup checks
 
