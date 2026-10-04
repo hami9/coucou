@@ -29,6 +29,8 @@ Existing Claude sessions may need a new session to pick up settings. Check Custo
 
 The Node bridge depends on `node` being on the agent's PATH. It forwards only selected display metadata to the local native relay, emits no stdout, and exits successfully on malformed input or relay failure. It never approves, denies, or continues an agent workflow. The native Claude permission relay still requires an explicit button click and falls back to the terminal without a decision when unanswered.
 
+On Windows, Antigravity commands use a verified 8.3 path to the bridge, without quotes or spaces. A quoted long path failed when the host split its arguments at the space in the user directory. The installer checks the directory file identity before using its short alias and refuses to write settings if that alias is unavailable. It upgrades only its exact previous Antigravity definition; unrelated or customized definitions remain protected. Claude and Codex keep their existing command syntax.
+
 ## Verify
 
 ```powershell
@@ -36,6 +38,8 @@ node --test windows/scripts/agent-hook.test.mjs
 ```
 
 Five tests cover event translation, provider identity, background completion, silent failure, backup preservation, and repeated installation. At setup, the tests and front-end build passed. Installed bridge commands for three provider labels and the native Claude command in Git Bash all returned exit code 0 with empty stdout; synthetic events appeared in Coucou's local log. End-to-end provider-generated events remain unverified pending hook trust and provider reload.
+
+The Windows regression test uses user and runtime directories with spaces. It reproduces the old module lookup failure, migrates the existing configuration, and checks all five Antigravity commands with whitespace argument splitting from the configuration directory. The installed commands also passed this path check on 2026-10-04. Claude's installed PreToolUse command passed a separate Git Bash path check. These checks use empty or malformed payloads so they do not create fake agent activity or permission requests.
 
 ## Restore
 

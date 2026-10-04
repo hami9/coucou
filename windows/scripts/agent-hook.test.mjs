@@ -46,8 +46,8 @@ test('malformed stdin exits silently without making a decision', () => {
 
 test('installer preserves foreign hooks and settings, backs up, and is idempotent', { skip: process.platform !== 'win32' }, () => {
   const base = mkdtempSync(join(process.env.TEMP, 'coucou-hook-check-'));
-  const user = join(base, 'user');
-  const local = join(base, 'local');
+  const user = join(base, 'user with spaces');
+  const local = join(base, 'local with spaces');
   const foreign = { hooks: [{ type: 'command', command: 'existing-tool' }] };
   const originals = [
     [join(user, '.claude', 'settings.json'), { model: 'unchanged', hooks: { PreToolUse: [foreign] } }],
@@ -79,4 +79,35 @@ test('installer preserves foreign hooks and settings, backs up, and is idempoten
   }
   assert.equal(run(['--apply']).status, 0);
   originals.forEach(([path], i) => assert.deepEqual(JSON.parse(readFileSync(path, 'utf8')), after[i]));
+
+  // Reproduce the host's whitespace splitting from its configuration directory.
+  const googlePath = originals[2][0];
+  const legacy = structuredClone(after[2]);
+  for (const event of ['PreInvocation', 'PostInvocation', 'PreToolUse', 'PostToolUse', 'Stop']) {
+    const entry = legacy.coucou[event][0];
+    const handler = entry.hooks?.[0] ?? entry;
+    handler.command = `node "${join(bin, 'agent-hook.mjs').replaceAll('\\', '/')}" antigravity ${event}`;
+    const [executable, ...args] = handler.command.split(/\s+/);
+    const broken = spawnSync(executable, args, { cwd: dirname(googlePath), input: '{}',
+      encoding: 'utf8', windowsHide: true, timeout: 5000 });
+    assert.equal(broken.status, 1);
+    assert.match(broken.stderr, /Cannot find module/);
+  }
+  writeFileSync(googlePath, JSON.stringify(legacy));
+  assert.equal(run(['--apply']).status, 0);
+  const fixed = JSON.parse(readFileSync(googlePath, 'utf8'));
+  assert.deepEqual(fixed.existing, legacy.existing);
+  for (const event of ['PreInvocation', 'PostInvocation', 'PreToolUse', 'PostToolUse', 'Stop']) {
+    const entry = fixed.coucou[event][0];
+    const handler = entry.hooks?.[0] ?? entry;
+    const [executable, ...args] = handler.command.split(/\s+/);
+    assert.equal(args.length, 3);
+    const check = spawnSync(executable, args, { cwd: dirname(googlePath), input: '{}',
+      encoding: 'utf8', windowsHide: true, timeout: 5000 });
+    assert.equal(check.status, 0, check.stderr);
+    assert.equal(check.stderr, '');
+    assert.equal(check.stdout, '');
+  }
+  assert.equal(run(['--apply']).status, 0);
+  assert.deepEqual(JSON.parse(readFileSync(googlePath, 'utf8')), fixed);
 });

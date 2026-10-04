@@ -1,4 +1,5 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync, renameSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync, renameSync, statSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
@@ -14,6 +15,20 @@ if (!existsSync(relay)) throw new Error('Start Coucou once to install its relay.
 const bridge = join(runtime, 'agent-hook.mjs');
 const quote = path => `"${path.replaceAll('\\', '/')}"`;
 const command = (provider, event) => `node ${quote(bridge)} ${provider} ${event}`;
+// Antigravity splits command arguments without shell quote handling on Windows.
+// Use the verified 8.3 directory alias so the script is a single argument.
+const shortRuntime = execFileSync(process.env.ComSpec || 'cmd.exe',
+  ['/d', '/s', '/c', 'for %I in ("%COUCOU_HOOK_DIRECTORY%") do @echo %~sI'], {
+    env: { ...process.env, COUCOU_HOOK_DIRECTORY: runtime },
+    encoding: 'utf8', windowsHide: true, windowsVerbatimArguments: true,
+  }).trim();
+const shortInfo = statSync(shortRuntime, { bigint: true });
+const runtimeInfo = statSync(runtime, { bigint: true });
+if (/\s/.test(shortRuntime) || shortInfo.ino === 0n ||
+    shortInfo.ino !== runtimeInfo.ino || shortInfo.dev !== runtimeInfo.dev) {
+  throw new Error('Antigravity needs a verified hook directory without spaces. Settings were not changed.');
+}
+const googleCommand = event => `node ${join(shortRuntime, 'agent-hook.mjs').replaceAll('\\', '/')} antigravity ${event}`;
 const stamp = new Date().toISOString().replaceAll(':', '-');
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const record = value => value && typeof value === 'object' && !Array.isArray(value);
@@ -52,13 +67,18 @@ const codex = read(join(process.env.CODEX_HOME || join(home, '.codex'), 'hooks.j
 const google = read(join(home, '.gemini', 'config', 'hooks.json'));
 mergeEvents(claude.value, claudeEvents, 'claude');
 mergeEvents(codex.value, codexEvents, 'codex');
-const antigravity = { enabled: true };
+const antigravity = { enabled: google.value.coucou?.enabled ?? true };
+const legacyAntigravity = { enabled: antigravity.enabled };
 for (const event of ['PreInvocation', 'PostInvocation', 'PreToolUse', 'PostToolUse', 'Stop']) {
-  const handler = { type: 'command', command: command('antigravity', event), timeout: 5 };
+  const handler = { type: 'command', command: googleCommand(event), timeout: 5 };
   antigravity[event] = ['PreToolUse', 'PostToolUse'].includes(event)
     ? [{ matcher: '*', hooks: [handler] }] : [handler];
+  const legacy = { ...handler, command: command('antigravity', event) };
+  legacyAntigravity[event] = ['PreToolUse', 'PostToolUse'].includes(event)
+    ? [{ matcher: '*', hooks: [legacy] }] : [legacy];
 }
-if (google.value.coucou && JSON.stringify(google.value.coucou) !== JSON.stringify(antigravity)) {
+if (google.value.coucou && JSON.stringify(google.value.coucou) !== JSON.stringify(antigravity) &&
+    JSON.stringify(google.value.coucou) !== JSON.stringify(legacyAntigravity)) {
   throw new Error('An existing coucou hook differs. Review it before replacing it.');
 }
 google.value.coucou = antigravity;
